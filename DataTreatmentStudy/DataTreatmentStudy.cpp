@@ -19,12 +19,8 @@ struct ResType {
     }
 };
 
-// template<typename T>
 struct Splitter {
-
     size_t cnt = 0;
-    std::vector<size_t> idcs1 = {};
-    std::vector<size_t> idcs2 = {};
     std::pair< std::vector<size_t>, std::vector<size_t>> idcs = std::make_pair< std::vector<size_t>, std::vector<size_t>>({},{});
 
 public:
@@ -32,19 +28,16 @@ public:
     }
 
     Splitter(size_t _cnt) :cnt(_cnt) {
-        resetIdcs1();
+        resetIdcsFirst();
     }
 
     void reset(size_t _cnt) {
         cnt = _cnt;
-        resetIdcs1();
+        resetIdcsFirst();
     }
 
 private:
-    void resetIdcs1() {
-        idcs1.resize(cnt);
-        std::iota(std::begin(idcs1), std::end(idcs1), 0);
-
+    void resetIdcsFirst() {
         idcs.first.resize(cnt);
         std::iota(std::begin(idcs.first), std::end(idcs.first), 0);
     }
@@ -54,30 +47,29 @@ public:
         if (_icdsToPick > cnt) {
             return;
         }
-        idcs2.resize(0);
         idcs.second.resize(0);
         for (size_t j = 0; j < _icdsToPick; ++j) {
             size_t randIndex = rand() % cnt;
-            if (std::find(idcs2.begin(), idcs2.end(), randIndex) != idcs2.end()) {
+            if (std::find(idcs.second.begin(), idcs.second.end(), randIndex) != idcs.second.end()) {
 
                 continue;
             }
-            idcs2.push_back(randIndex);
+            idcs.second.push_back(randIndex);
         }
-        std::sort(idcs2.begin(), idcs2.end());
+        std::sort(idcs.second.begin(), idcs.second.end());
     }
 
     void removeIdcs() {
-        if (idcs2.size() == 0) {
+        if (idcs.second.size() == 0) {
             return;
         }
-        resetIdcs1();
-        for (auto it = idcs2.cbegin(); it != idcs2.cend(); ++it) {
-            auto found = std::find(idcs1.begin(), idcs1.end(), *it);
-            if (found == idcs1.end()) {
+        resetIdcsFirst();
+        for (auto it = idcs.second.cbegin(); it != idcs.second.cend(); ++it) {
+            auto found = std::find(idcs.first.begin(), idcs.first.end(), *it);
+            if (found == idcs.first.end()) {
                 continue;
             }
-            idcs1.erase(found);
+            idcs.first.erase(found);
         }
     }
 
@@ -89,15 +81,21 @@ public:
 
         std::istream_iterator<size_t> start(is), end;
         std::vector<size_t> numbers(start, end);
-        idcs2.resize(0);
-        std::copy(numbers.begin(), numbers.end(), std::back_inserter(idcs2));
-        std::sort(idcs2.begin(), idcs2.end());
+        idcs.second.resize(0);
+        std::copy(numbers.begin(), numbers.end(), std::back_inserter(idcs.second));
+        std::sort(idcs.second.begin(), idcs.second.end());
     }
+};
+
+struct Filter {
+    size_t targetIdx = 1;
+
 };
 
 struct DataObject {
     std::vector<std::vector<std::string>> content = {};
     Splitter splitter;
+    Filter filter;
     DataObject() {
     }
 
@@ -106,36 +104,40 @@ struct DataObject {
         splitter.reset(content.size());
     }
 
+    std::vector<std::string>& dataItem(std::size_t _i, std::vector<size_t> _ws) {
+        assert(_i < _ws.size());
+        return content[_ws[_i]];
+    }
+
     std::vector<std::string>& trainData(std::size_t _i) {
-        assert(_i < splitter.idcs1.size());
-        return content[splitter.idcs1[_i]];
+        return dataItem(_i, splitter.idcs.first);
     }
 
     std::vector<std::string>& testData(std::size_t _i) {
-        assert(_i < splitter.idcs2.size());
-        return content[splitter.idcs2[_i]];
+        return dataItem(_i, splitter.idcs.second);
     }
 
     size_t getTrainDataSize() const {
-        return splitter.idcs1.size();
+        return splitter.idcs.first.size();
     }
 
     size_t getTestDataSize() const {
-        return splitter.idcs2.size();
+        return splitter.idcs.second.size();
     }
 
-    void allTrainData(std::vector < std::vector<std::string>>& _trainData) {
-        _trainData.resize(0);
-        for (auto it = splitter.idcs1.cbegin(); it != splitter.idcs1.cend(); ++it) {
-            _trainData.push_back(content[*it]);
+    void setData(std::vector < std::vector<std::string>>& _tData, std::vector<size_t >& _ws) {
+        _tData.resize(0);
+        for (auto it = _ws.cbegin(); it != _ws.cend(); ++it) {
+            _tData.push_back(content[*it]);
         }
     }
 
-    void allTestData(std::vector < std::vector<std::string>>& _testData) {
-        _testData.resize(0);
-        for (auto it = splitter.idcs2.cbegin(); it != splitter.idcs2.cend(); ++it) {
-            _testData.push_back(content[*it]);
-        }
+    void allTrainData(std::vector < std::vector<std::string>>& _tData) {
+        setData(_tData, splitter.idcs.first);
+    }
+
+    void allTestData(std::vector < std::vector<std::string>>& _tData) {
+        setData(_tData, splitter.idcs.second);
     }
 };
 
