@@ -8,7 +8,7 @@
 #include <numeric>
 #include <vector>
 #include <map>
-// #include <tuple>
+#include <ranges>
 #include <cassert>
 
 template<typename T>
@@ -154,6 +154,8 @@ const std::vector<std::vector<std::string>> RawData = { {"2.3", "One"},
     {"1.4", "One"}, 
     {"1.9", "Three"} };
 
+[[nodiscard]] bool One(const std::vector<std::string>& _x) { return _x[1] == "One"; }
+
 int main()
 {
 
@@ -213,6 +215,29 @@ int main()
     std::vector<std::vector<std::string>> trainData = {};
 
     dataObj.allTrainData(trainData);
+
+    std::string s = "Two";
+
+    std::vector<std::string> targets = { "One","Two","Three" };
+
+    for (auto it = targets.cbegin(); it != targets.cend(); ++it) {
+        std::string s = *it;
+        auto view1 = dataObj.content | std::views::filter([s](const std::vector<std::string>& _x) { return _x[1] == s; });
+        std::for_each(view1.begin(), view1.end(), [](const std::vector<std::string>& _x) {std::cout << " _x[0]: " << _x[0] << "   _x[1]: " << _x[1] << std::endl; });
+        std::cout << std::endl;
+
+        //std::vector<std::vector<std::string>> trainData = {};
+        //dataObj.allTrainData(trainData);
+        auto view2 = trainData | std::views::filter([s](const std::vector<std::string>& _x) { return _x[1] == s; });
+        std::for_each(view2.begin(), view2.end(), [](const std::vector<std::string>& _x) {std::cout << "__x[0]: " << _x[0] << "  __x[1]: " << _x[1] << std::endl; });
+        std::cout << std::endl;
+
+        std::vector<std::vector<std::string>> vec = {};
+        std::transform(view2.begin(), view2.end(), std::back_inserter(vec),
+            [](const std::vector<std::string>& c) { return c; });
+        std::for_each(vec.begin(), vec.end(), [](const std::vector<std::string>& _x) {std::cout << "__v[0]: " << _x[0] << "  __v[1]: " << _x[1] << std::endl; });
+        std::cout << std::endl;
+    }
 
     std::cout << "Hello World!\n";
 }
