@@ -226,8 +226,6 @@ int main()
         std::for_each(view1.begin(), view1.end(), [](const std::vector<std::string>& _x) {std::cout << " _x[0]: " << _x[0] << "   _x[1]: " << _x[1] << std::endl; });
         std::cout << std::endl;
 
-        //std::vector<std::vector<std::string>> trainData = {};
-        //dataObj.allTrainData(trainData);
         auto view2 = trainData | std::views::filter([s](const std::vector<std::string>& _x) { return _x[1] == s; });
         std::for_each(view2.begin(), view2.end(), [](const std::vector<std::string>& _x) {std::cout << "__x[0]: " << _x[0] << "  __x[1]: " << _x[1] << std::endl; });
         std::cout << std::endl;
