@@ -1,0 +1,4 @@
+targetColumn,4
+firstLineToRead,1
+numberOfLines,151
+numberOfDataSets,150

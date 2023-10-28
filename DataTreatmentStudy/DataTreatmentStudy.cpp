@@ -10,14 +10,43 @@
 #include <map>
 #include <ranges>
 #include <cassert>
+#include <string>
+#include <sstream>
 
-template<typename T>
-struct ResType {
-    std::_Tree_iterator<std::_Tree_val<std::_Tree_simple_types<T>>> data;
-    ResType(const std::_Tree_iterator<std::_Tree_val<std::_Tree_simple_types<T>>>& _data) {
-        data = _data;
+int getCsvContent(std::vector<std::vector<std::string>>& _csvContent, std::string _csvFile) {
+    std::vector<std::string> row;
+    std::string line, word;
+
+    std::fstream file(_csvFile, std::ios::in);
+    if (!file.is_open())
+    {
+        std::cout << "Could not open the file\n";
+        return -1;
     }
-};
+    int i = 0;
+    while (getline(file, line))
+    {
+        row.clear();
+
+        std::stringstream str(line);
+
+        while (getline(str, word, ','))
+            row.push_back(word);
+        _csvContent.push_back(row);
+        ++i;
+    }
+    return i;
+}
+
+void getMetaData(std::map<std::string, size_t>& _metaData, std::string _metaDataFile) {
+    std::vector<std::vector<std::string>> rawContent = {};
+    getCsvContent(rawContent, _metaDataFile);
+
+    std::cout << std::endl;
+    std::for_each(rawContent.begin(), rawContent.end(), [&_metaData](std::vector < std::string>& _x) {_metaData.insert({ _x[0], std::stoul(_x[1]) }); });
+    // std::transform(rawContent.cbegin(), rawContent.cend(), _metaData.begin(), [](std::vector < std::string>& _x) {std::back_inserter(_x[0], _x[1]); });
+    return;
+}
 
 struct Splitter {
     size_t cnt = 0;
@@ -50,8 +79,9 @@ public:
         idcs.second.resize(0);
         for (size_t j = 0; j < _icdsToPick; ++j) {
             size_t randIndex = rand() % cnt;
+            // printf("j: %d\trand: %u\n", j, randIndex);
             if (std::find(idcs.second.begin(), idcs.second.end(), randIndex) != idcs.second.end()) {
-
+                --j;
                 continue;
             }
             idcs.second.push_back(randIndex);
@@ -141,100 +171,72 @@ struct DataObject {
     }
 };
 
-const unsigned int targetIndex = 1;
-
-const std::vector<std::vector<std::string>> RawData = { {"2.3", "One"}, 
-    {"3.1", "Two"}, 
-    {"1.7", "One"}, 
-    {"3.4", "Two"}, 
-    {"2.0", "One"}, 
-    {"3.7", "Two"}, 
-    {"1.7", "One"}, 
-    {"3.2", "Two"},
-    {"1.4", "One"}, 
-    {"1.9", "Three"} };
-
-[[nodiscard]] bool One(const std::vector<std::string>& _x) { return _x[1] == "One"; }
-
 int main()
 {
+    std::string fname = "C:\\Users\\haasr\\source\\repos\\DataTreatmentStudy\\DataTreatmentStudy\\data\\irisMetaData.txt";
+    std::map<std::string, size_t> metaData;
+    getMetaData(metaData, fname);
 
-    size_t countRawData = RawData.size();
-    std::map<std::string, int> codingTable;
+    const size_t targetColumn = metaData["targetColumn"];
+    const size_t lineCount = metaData["numberOfLines"];
+    const size_t firstLineToRead = metaData["firstLineToRead"];
 
-    unsigned j = 0;
-    for (auto it = RawData.cbegin(); it != RawData.cend(); ++it) {
-        auto key = it->at(targetIndex);
-        if (codingTable.find(key) != codingTable.end()) {
-            continue;
-        }
-        ++j;
-        ResType<std::pair<std::string const, int>> res(codingTable.insert(codingTable.begin(), std::pair<std::string, int>(key, j)));
-    }
+    fname = "C:\\Users\\haasr\\source\\repos\\DataTreatmentStudy\\DataTreatmentStudy\\data\\iris.csv";
+    std::vector<std::vector<std::string>> content;
+    getCsvContent(content, fname);
 
-    std::map<std::string, std::vector<size_t>> idxMap;
+    content.erase(content.begin(), content.begin() + firstLineToRead);
 
-    for (auto it = codingTable.cbegin(); it != codingTable.cend(); ++it) {
-        {
-            idxMap.insert(idxMap.begin(), std::pair<std::string, std::vector<size_t>>(it->first, { }));
-        }
-    }
+    std::vector<std::string> targets = {};
+    std::for_each(content.begin(), content.end(), [&targets, targetColumn](const std::vector<std::string>& _x) {if (!std::count(targets.begin(), targets.end(), _x[targetColumn])) targets.push_back(_x[targetColumn]); });
 
-    for (auto it = idxMap.begin(); it != idxMap.end(); ++it) {
-        std::vector<size_t> idx;
-        for (auto it1 = RawData.cbegin(); it1 != RawData.cend(); ++it1) {
-            if (it1->at(targetIndex) != it->first) {
-                continue;
-            }
-            idx.push_back(std::distance(RawData.cbegin(), it1));
-        }
-        (it->second).insert((it->second).end(), idx.begin(), idx.end());
-    }
-
-    Splitter splitter(10);
-    splitter.pickIdcsRandomly(3);
-    splitter.removeIdcs();
-    splitter.removeIdcs();
-    splitter.readIcdsFromFile();
-
-    DataObject dataObj(RawData);
-    dataObj.splitter.pickIdcsRandomly(3);
+    DataObject dataObj(content);
+    dataObj.splitter.pickIdcsRandomly(30);
     dataObj.splitter.removeIdcs();
 
-    for (size_t j = 0; j < dataObj.getTrainDataSize(); ++j) {
-        auto ws = dataObj.trainData(j);
-        ws[0] = "2.333";
-    }
-
-    for (size_t j = 0; j < dataObj.getTestDataSize(); ++j) {
-        auto ws = dataObj.testData(j);
-        ws[0] = "2.4711";
-        dataObj.testData(j) = ws;
-    }
-
     std::vector<std::vector<std::string>> trainData = {};
-
     dataObj.allTrainData(trainData);
 
-    std::string s = "Two";
-
-    std::vector<std::string> targets = { "One","Two","Three" };
+    std::map<std::string, std::vector<std::vector<double>>> groupedData;
 
     for (auto it = targets.cbegin(); it != targets.cend(); ++it) {
         std::string s = *it;
-        auto view1 = dataObj.content | std::views::filter([s](const std::vector<std::string>& _x) { return _x[1] == s; });
-        std::for_each(view1.begin(), view1.end(), [](const std::vector<std::string>& _x) {std::cout << " _x[0]: " << _x[0] << "   _x[1]: " << _x[1] << std::endl; });
-        std::cout << std::endl;
 
-        auto view2 = trainData | std::views::filter([s](const std::vector<std::string>& _x) { return _x[1] == s; });
-        std::for_each(view2.begin(), view2.end(), [](const std::vector<std::string>& _x) {std::cout << "__x[0]: " << _x[0] << "  __x[1]: " << _x[1] << std::endl; });
-        std::cout << std::endl;
-
+        // Filtering
+        auto view2 = trainData | std::views::filter([s, targetColumn](const std::vector<std::string>& _x) {return _x[targetColumn].find(s) != std::string::npos; });
+        std::for_each(view2.begin(), view2.end(), [targetColumn](const std::vector<std::string>& _s) {std::cout << _s[targetColumn] << std::endl; });
         std::vector<std::vector<std::string>> vec = {};
         std::transform(view2.begin(), view2.end(), std::back_inserter(vec),
             [](const std::vector<std::string>& c) { return c; });
+
         std::for_each(vec.begin(), vec.end(), [](const std::vector<std::string>& _x) {std::cout << "__v[0]: " << _x[0] << "  __v[1]: " << _x[1] << std::endl; });
         std::cout << std::endl;
+
+        // Conversion
+        std::vector<std::vector<double>> vec1 = {};
+        std::for_each(view2.begin(), view2.end(),
+            [&vec1, targetColumn](std::vector<std::string>& c) {
+                size_t j = 0;
+                std::vector<double> vec2 = {};
+                std::for_each(c.begin(), c.begin() + targetColumn, [&vec2](std::string _s) { vec2.push_back(std::stod(_s)); });
+                std::for_each(c.begin() + targetColumn, c.end() - 1, [&vec2](std::string _s) { vec2.push_back(std::stod(_s)); });
+                vec1.push_back(vec2); 
+            });
+        groupedData[s] = vec1;
+    }
+
+    for (auto item : groupedData) {
+        std::cout << item.first << std::endl;
+        std::vector<double> means = { 0.0,0.0,0.0,0.0 };
+        double scal = 1.0 / item.second.size();
+        std::for_each(item.second.begin(), item.second.end(), [&means, scal](std::vector<double>& _x) {
+            std::transform(_x.begin(), _x.end(), means.begin(), means.begin(), [scal](double _a, double _b) {_b += _a * scal; return _b; });
+            });
+        //std::vector<double> vars = { 0.0,0.0,0.0,0.0 };
+        //scal = 1.0 / (item.second.size() - 1);
+        //std::for_each(item.second.begin(), item.second.end(), [&vars, &means, scal](std::vector<double>& _x) {
+        //    std::transform(_x.begin(), _x.end(), vars.begin(), vars.begin(), [scal](double _a, double _b) {_b += std::pow(_a-); return _b; });
+        //    });
     }
 
     std::cout << "Hello World!\n";
