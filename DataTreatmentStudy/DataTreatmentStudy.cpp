@@ -12,6 +12,7 @@
 #include <cassert>
 #include <string>
 #include <sstream>
+#include <cmath>
 
 int getCsvContent(std::vector<std::vector<std::string>>& _csvContent, std::string _csvFile) {
     std::vector<std::string> row;
@@ -232,11 +233,24 @@ int main()
         std::for_each(item.second.begin(), item.second.end(), [&means, scal](std::vector<double>& _x) {
             std::transform(_x.begin(), _x.end(), means.begin(), means.begin(), [scal](double _a, double _b) {_b += _a * scal; return _b; });
             });
-        //std::vector<double> vars = { 0.0,0.0,0.0,0.0 };
-        //scal = 1.0 / (item.second.size() - 1);
-        //std::for_each(item.second.begin(), item.second.end(), [&vars, &means, scal](std::vector<double>& _x) {
-        //    std::transform(_x.begin(), _x.end(), vars.begin(), vars.begin(), [scal](double _a, double _b) {_b += std::pow(_a-); return _b; });
-        //    });
+        std::vector<std::vector<double>> ws(item.second);
+        std::for_each(ws.begin(), ws.end(), [&means](std::vector<double>& _x) {
+            std::transform(_x.begin(), _x.end(), means.begin(), _x.begin(), [](double _a, double _b) {return _a - _b; });
+            });
+
+        std::vector<double> means1 = { 0.0,0.0,0.0,0.0 };
+        scal = 1.0 / ws.size();
+        std::for_each(ws.begin(), ws.end(), [&means1, scal](std::vector<double>& _x) {
+            std::transform(_x.begin(), _x.end(), means1.begin(), means1.begin(), [scal](double _a, double _b) {_b += _a * scal; return _b; });
+            });
+
+        std::vector<double> vars = { 0.0,0.0,0.0,0.0 };
+        scal = 1.0 / (ws.size() - 1);
+        std::for_each(ws.begin(), ws.end(), [&vars, scal](std::vector<double>& _x) {
+            std::transform(_x.begin(), _x.end(), vars.begin(), vars.begin(), [scal](double _a, double _b) {_b += scal * std::pow(_a, 2.0); return _b; });
+            });
+        std::vector<double> stddevs = { 0.0,0.0,0.0,0.0 };
+        std::transform(vars.begin(), vars.end(), stddevs.begin(), [](double _a) {return std::sqrt(_a); });
     }
 
     std::cout << "Hello World!\n";
