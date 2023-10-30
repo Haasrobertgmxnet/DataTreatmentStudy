@@ -2,17 +2,16 @@
 //
 
 #include <iostream>
-#include <cstdio>
 #include <fstream>
 #include <algorithm>
-#include <numeric>
 #include <vector>
 #include <map>
 #include <ranges>
 #include <cassert>
 #include <string>
 #include <sstream>
-#include <cmath>
+
+#include "splitter.h"
 
 int getCsvContent(std::vector<std::vector<std::string>>& _csvContent, std::string _csvFile) {
     std::vector<std::string> row;
@@ -49,75 +48,6 @@ void getMetaData(std::map<std::string, size_t>& _metaData, std::string _metaData
     return;
 }
 
-struct Splitter {
-    size_t cnt = 0;
-    std::pair< std::vector<size_t>, std::vector<size_t>> idcs = std::make_pair< std::vector<size_t>, std::vector<size_t>>({},{});
-
-public:
-    Splitter() {
-    }
-
-    Splitter(size_t _cnt) :cnt(_cnt) {
-        resetIdcsFirst();
-    }
-
-    void reset(size_t _cnt) {
-        cnt = _cnt;
-        resetIdcsFirst();
-    }
-
-private:
-    void resetIdcsFirst() {
-        idcs.first.resize(cnt);
-        std::iota(std::begin(idcs.first), std::end(idcs.first), 0);
-    }
-
-public:
-    void pickIdcsRandomly(size_t _icdsToPick) {
-        if (_icdsToPick > cnt) {
-            return;
-        }
-        idcs.second.resize(0);
-        for (size_t j = 0; j < _icdsToPick; ++j) {
-            size_t randIndex = rand() % cnt;
-            // printf("j: %d\trand: %u\n", j, randIndex);
-            if (std::find(idcs.second.begin(), idcs.second.end(), randIndex) != idcs.second.end()) {
-                --j;
-                continue;
-            }
-            idcs.second.push_back(randIndex);
-        }
-        std::sort(idcs.second.begin(), idcs.second.end());
-    }
-
-    void removeIdcs() {
-        if (idcs.second.size() == 0) {
-            return;
-        }
-        resetIdcsFirst();
-        for (auto it = idcs.second.cbegin(); it != idcs.second.cend(); ++it) {
-            auto found = std::find(idcs.first.begin(), idcs.first.end(), *it);
-            if (found == idcs.first.end()) {
-                continue;
-            }
-            idcs.first.erase(found);
-        }
-    }
-
-    void readIcdsFromFile()
-    {
-        // Ref.: https://stackoverflow.com/questions/15138785/how-to-read-a-file-into-vector-in-c
-        // Opening the file
-        std::ifstream is("file.txt", std::ios::in);
-
-        std::istream_iterator<size_t> start(is), end;
-        std::vector<size_t> numbers(start, end);
-        idcs.second.resize(0);
-        std::copy(numbers.begin(), numbers.end(), std::back_inserter(idcs.second));
-        std::sort(idcs.second.begin(), idcs.second.end());
-    }
-};
-
 struct Filter {
     size_t targetIdx = 1;
 
@@ -127,8 +57,6 @@ struct DataObject {
     std::vector<std::vector<std::string>> content = {};
     Splitter splitter;
     Filter filter;
-    DataObject() {
-    }
 
     DataObject(const std::vector<std::vector<std::string>>& _content) {
         std::copy(_content.begin(), _content.end(), std::back_inserter(content));
@@ -141,19 +69,19 @@ struct DataObject {
     }
 
     std::vector<std::string>& trainData(std::size_t _i) {
-        return dataItem(_i, splitter.idcs.first);
+        return dataItem(_i, splitter.getIdcs().first);
     }
 
     std::vector<std::string>& testData(std::size_t _i) {
-        return dataItem(_i, splitter.idcs.second);
+        return dataItem(_i, splitter.getIdcs().second);
     }
 
-    size_t getTrainDataSize() const {
-        return splitter.idcs.first.size();
+    constexpr size_t getTrainDataSize() {
+        return splitter.getIdcs().first.size();
     }
 
-    size_t getTestDataSize() const {
-        return splitter.idcs.second.size();
+    constexpr size_t getTestDataSize() {
+        return splitter.getIdcs().second.size();
     }
 
     void setData(std::vector < std::vector<std::string>>& _tData, std::vector<size_t >& _ws) {
@@ -164,11 +92,15 @@ struct DataObject {
     }
 
     void allTrainData(std::vector < std::vector<std::string>>& _tData) {
-        setData(_tData, splitter.idcs.first);
+        setData(_tData, splitter.getIdcs().first);
     }
 
     void allTestData(std::vector < std::vector<std::string>>& _tData) {
-        setData(_tData, splitter.idcs.second);
+        setData(_tData, splitter.getIdcs().second);
+    }
+
+    void allTargets(std::vector < std::vector<std::string>>& _tData) {
+
     }
 };
 
@@ -236,12 +168,6 @@ int main()
         std::vector<std::vector<double>> ws(item.second);
         std::for_each(ws.begin(), ws.end(), [&means](std::vector<double>& _x) {
             std::transform(_x.begin(), _x.end(), means.begin(), _x.begin(), [](double _a, double _b) {return _a - _b; });
-            });
-
-        std::vector<double> means1 = { 0.0,0.0,0.0,0.0 };
-        scal = 1.0 / ws.size();
-        std::for_each(ws.begin(), ws.end(), [&means1, scal](std::vector<double>& _x) {
-            std::transform(_x.begin(), _x.end(), means1.begin(), means1.begin(), [scal](double _a, double _b) {_b += _a * scal; return _b; });
             });
 
         std::vector<double> vars = { 0.0,0.0,0.0,0.0 };

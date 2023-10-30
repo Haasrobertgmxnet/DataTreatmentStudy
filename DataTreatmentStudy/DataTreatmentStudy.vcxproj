@@ -133,6 +133,9 @@
   <ItemGroup>
     <ClCompile Include="DataTreatmentStudy.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="splitter.h" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
