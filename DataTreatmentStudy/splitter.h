@@ -7,8 +7,7 @@
 
 struct Splitter {
 public:
-    Splitter() {
-    }
+    Splitter() = default;
 
     void reset(size_t _cnt) {
         cnt = _cnt;

@@ -1,5 +1,6 @@
 // DataTreatmentStudy.cpp : Diese Datei enthält die Funktion "main". Hier beginnt und endet die Ausführung des Programms.
 //
+#define _USE_MATH_DEFINES
 
 #include <iostream>
 #include <fstream>
@@ -10,8 +11,19 @@
 #include <cassert>
 #include <string>
 #include <sstream>
+#include <functional>
 
 #include "splitter.h"
+
+
+double logGaussianPDF(double x, double _mean, double _sd) {
+    auto w = (x - _mean) / _sd;
+    return -0.5 * w * w - std::log(std::sqrt(2. * M_PI * _sd));
+};
+
+double gaussianPDF(double x, double _mean, double _sd) {
+    return std::exp(logGaussianPDF(x, _mean, _sd));
+};
 
 int getCsvContent(std::vector<std::vector<std::string>>& _csvContent, std::string _csvFile) {
     std::vector<std::string> row;
@@ -49,16 +61,60 @@ void getMetaData(std::map<std::string, size_t>& _metaData, std::string _metaData
 }
 
 struct Filter {
-    size_t targetIdx = 1;
+    std::vector<std::string> targets = {};
+    std::vector<std::vector<std::string>> trainData = {};
+
+
+    Filter() = default;
+
+    void setTargets(std::vector<std::string>& _targets) {
+        std::copy(_targets.begin(), _targets.end(), std::back_inserter(targets));
+    }
+
+
 
 };
 
+std::vector < std::vector<std::string>> FilterFunc(const std::vector<std::vector<std::string>>& _content, const std::function<bool(const std::vector<std::string>&)>& _func) {
+    // Filtering
+    auto view2 = _content | std::views::filter(_func);
+    std::vector<std::vector<std::string>> vec = {};
+    std::transform(view2.begin(), view2.end(), std::back_inserter(vec),
+        [](const std::vector<std::string>& c) { return c; });
+    return vec;
+}
+
+std::vector<std::vector<double>> ConvFunc(const std::vector<std::vector<std::string>>& _vec, size_t _targetColumn) {
+    std::vector<std::vector<double>> vec1 = {};
+    std::for_each(_vec.begin(), _vec.end(),
+        [&vec1, _targetColumn](std::vector<std::string> c) {
+            size_t j = 0;
+            std::vector<double> vec2 = {};
+            auto func = [&vec2](std::string _s) {
+                try {
+                    vec2.push_back(std::stod(_s));
+                }
+                catch (std::exception ex) {
+                    // skip column, if its datatype cannot converted to a numeric format
+                    // 
+                }
+            };
+            std::for_each(c.begin(), c.begin() + _targetColumn, func);
+            std::for_each(c.begin() + _targetColumn, c.end() - 1, func);
+            vec1.push_back(vec2);
+        });
+    return vec1;
+}
+
 struct DataObject {
     std::vector<std::vector<std::string>> content = {};
+    std::vector<std::string> targets = {};
     Splitter splitter;
     Filter filter;
 
-    DataObject(const std::vector<std::vector<std::string>>& _content) {
+    DataObject() = default;
+
+    void setContent(const std::vector<std::vector<std::string>>& _content) {
         std::copy(_content.begin(), _content.end(), std::back_inserter(content));
         splitter.reset(content.size());
     }
@@ -91,17 +147,32 @@ struct DataObject {
         }
     }
 
-    void allTrainData(std::vector < std::vector<std::string>>& _tData) {
+    std::vector < std::vector<std::string>>& allTrainData(std::vector < std::vector<std::string>>& _tData) {
         setData(_tData, splitter.getIdcs().first);
+        return _tData;
+    }
+
+    std::vector <std::vector<std::string>> getAllTrainData() {
+        std::vector < std::vector<std::string>> tData;
+        setData(tData, splitter.getIdcs().first);
+        return tData;
     }
 
     void allTestData(std::vector < std::vector<std::string>>& _tData) {
         setData(_tData, splitter.getIdcs().second);
     }
 
-    void allTargets(std::vector < std::vector<std::string>>& _tData) {
-
+    std::vector<std::string> getTargets() const {
+        return targets;
     }
+
+};
+
+struct GroupedDataItem {
+    std::vector<std::vector<double>> featureData;
+    std::vector<double> means;
+    std::vector<double> stddevs;
+    std::function<double(std::vector<double>)> probFunc;
 };
 
 int main()
@@ -123,49 +194,33 @@ int main()
     std::vector<std::string> targets = {};
     std::for_each(content.begin(), content.end(), [&targets, targetColumn](const std::vector<std::string>& _x) {if (!std::count(targets.begin(), targets.end(), _x[targetColumn])) targets.push_back(_x[targetColumn]); });
 
-    DataObject dataObj(content);
+    DataObject dataObj;
+    dataObj.setContent(content);
     dataObj.splitter.pickIdcsRandomly(30);
     dataObj.splitter.removeIdcs();
 
-    std::vector<std::vector<std::string>> trainData = {};
-    dataObj.allTrainData(trainData);
-
-    std::map<std::string, std::vector<std::vector<double>>> groupedData;
+    std::map<std::string, std::vector<std::vector<double>>> _groupedData;
+    std::map<std::string, GroupedDataItem> groupedData;
 
     for (auto it = targets.cbegin(); it != targets.cend(); ++it) {
         std::string s = *it;
 
         // Filtering
-        auto view2 = trainData | std::views::filter([s, targetColumn](const std::vector<std::string>& _x) {return _x[targetColumn].find(s) != std::string::npos; });
-        std::for_each(view2.begin(), view2.end(), [targetColumn](const std::vector<std::string>& _s) {std::cout << _s[targetColumn] << std::endl; });
-        std::vector<std::vector<std::string>> vec = {};
-        std::transform(view2.begin(), view2.end(), std::back_inserter(vec),
-            [](const std::vector<std::string>& c) { return c; });
-
-        std::for_each(vec.begin(), vec.end(), [](const std::vector<std::string>& _x) {std::cout << "__v[0]: " << _x[0] << "  __v[1]: " << _x[1] << std::endl; });
-        std::cout << std::endl;
+        auto vec = FilterFunc(dataObj.getAllTrainData(), [s, targetColumn](const std::vector<std::string>& _x) {return _x[targetColumn].find(s) != std::string::npos; });
 
         // Conversion
-        std::vector<std::vector<double>> vec1 = {};
-        std::for_each(view2.begin(), view2.end(),
-            [&vec1, targetColumn](std::vector<std::string>& c) {
-                size_t j = 0;
-                std::vector<double> vec2 = {};
-                std::for_each(c.begin(), c.begin() + targetColumn, [&vec2](std::string _s) { vec2.push_back(std::stod(_s)); });
-                std::for_each(c.begin() + targetColumn, c.end() - 1, [&vec2](std::string _s) { vec2.push_back(std::stod(_s)); });
-                vec1.push_back(vec2); 
-            });
-        groupedData[s] = vec1;
+        _groupedData[s] = ConvFunc(vec, targetColumn);
+        groupedData[s].featureData = ConvFunc(vec, targetColumn);
     }
 
-    for (auto item : groupedData) {
+    for (auto&& item : groupedData) {
         std::cout << item.first << std::endl;
         std::vector<double> means = { 0.0,0.0,0.0,0.0 };
-        double scal = 1.0 / item.second.size();
-        std::for_each(item.second.begin(), item.second.end(), [&means, scal](std::vector<double>& _x) {
+        double scal = 1.0 / item.second.featureData.size();
+        std::for_each(item.second.featureData.begin(), item.second.featureData.end(), [&means, scal](std::vector<double>& _x) {
             std::transform(_x.begin(), _x.end(), means.begin(), means.begin(), [scal](double _a, double _b) {_b += _a * scal; return _b; });
             });
-        std::vector<std::vector<double>> ws(item.second);
+        std::vector<std::vector<double>> ws(item.second.featureData);
         std::for_each(ws.begin(), ws.end(), [&means](std::vector<double>& _x) {
             std::transform(_x.begin(), _x.end(), means.begin(), _x.begin(), [](double _a, double _b) {return _a - _b; });
             });
@@ -177,6 +232,55 @@ int main()
             });
         std::vector<double> stddevs = { 0.0,0.0,0.0,0.0 };
         std::transform(vars.begin(), vars.end(), stddevs.begin(), [](double _a) {return std::sqrt(_a); });
+        std::copy(means.begin(), means.end(), std::back_inserter(item.second.means));
+        std::copy(stddevs.begin(), stddevs.end(), std::back_inserter(item.second.stddevs));
+
+
+        double relativeFrequency = item.second.featureData.size() / 120.0;
+
+        //auto prob = [&means, &stddevs, relativeFrequency](std::vector<double> _x) -> double {
+        //    double res = 1.0;
+        //    std::vector<double> ws = {};
+        //    std::vector<double> ws1 = {};
+        //    std::transform(_x.begin(), _x.end(), means.begin(), ws.begin(), [](double _a, double _b) { return _a - _b; });
+        //    std::transform(ws.begin(), ws.end(), stddevs.begin(), ws1.begin(), [](double _a, double _b) { return gaussianPDF(_a, 0, _b); });
+        //    std::for_each(ws1.begin(), ws1.end(), [&res](double _x) {res *= _x; });
+        //    return res * relativeFrequency;
+        //};
+
+        //auto prob = [&item, relativeFrequency](std::vector<double> _x) -> double {
+        //    double res = 1.0;
+        //    std::vector<double> ws = {};
+        //    std::vector<double> ws1 = {};
+
+        //    
+        //    std::transform(_x.begin(), _x.end(), item.second.means.begin(), ws.begin(), [&ws](double _a, double _b) { return  _a - _b; });
+        //    std::transform(ws.begin(), ws.end(), item.second.stddevs.begin(), ws1.begin(), [](double _a, double _b) { return gaussianPDF(_a, 0, _b); });
+        //    std::for_each(ws1.begin(), ws1.end(), [&res](double _x) {res *= _x; });
+        //    return res * relativeFrequency;
+        //};
+
+        auto prob = [&item, relativeFrequency](std::vector<double> _x) -> double {
+            double res = 1.0;
+            for (auto j = 0; j < 4; ++j) {
+                res *= gaussianPDF(_x[j], item.second.means[j], item.second.stddevs[j]);
+            }
+            return res * relativeFrequency;
+        };
+        item.second.probFunc = prob;
+    }
+
+    std::vector<std::string> keys = { "\"Setosa\"" , "\"Versicolor\"" , "\"Virginica\"" };
+
+    for (auto key : keys) {
+        std::cout << "Key: " << key << std::endl;
+        std::for_each(groupedData[key].featureData.begin(), groupedData[key].featureData.end(),
+            [&groupedData, &keys](const std::vector<double>& _x) {
+                //std::for_each(keys.begin(), keys.end(), [&groupedData, _x](const std::string& _s) {std::cout << "\tKey: " << _s; });
+                std::for_each(keys.begin(), keys.end(), [&groupedData, _x](const std::string& _s) {std::cout << "\tKey: " << _s << "\tValue: " << groupedData[_s].probFunc(_x); });
+                std::cout << std::endl;
+            }
+        );
     }
 
     std::cout << "Hello World!\n";
