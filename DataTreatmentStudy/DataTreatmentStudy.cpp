@@ -9,12 +9,16 @@
 #include <map>
 #include <ranges>
 #include <cassert>
-#include <string>
+#include <iterator>
 #include <sstream>
 #include <functional>
+#include <cstdint>
 
 #include "splitter.h"
-
+#include "getcsvcontent.h"
+#include "metadata.h"
+#include "feature_filter.h"
+#include "data_object.h"
 
 double logGaussianPDF(double x, double _mean, double _sd) {
     auto w = (x - _mean) / _sd;
@@ -23,56 +27,6 @@ double logGaussianPDF(double x, double _mean, double _sd) {
 
 double gaussianPDF(double x, double _mean, double _sd) {
     return std::exp(logGaussianPDF(x, _mean, _sd));
-};
-
-int getCsvContent(std::vector<std::vector<std::string>>& _csvContent, std::string _csvFile) {
-    std::vector<std::string> row;
-    std::string line, word;
-
-    std::fstream file(_csvFile, std::ios::in);
-    if (!file.is_open())
-    {
-        std::cout << "Could not open the file\n";
-        return -1;
-    }
-    int i = 0;
-    while (getline(file, line))
-    {
-        row.clear();
-
-        std::stringstream str(line);
-
-        while (getline(str, word, ','))
-            row.push_back(word);
-        _csvContent.push_back(row);
-        ++i;
-    }
-    return i;
-}
-
-void getMetaData(std::map<std::string, size_t>& _metaData, std::string _metaDataFile) {
-    std::vector<std::vector<std::string>> rawContent = {};
-    getCsvContent(rawContent, _metaDataFile);
-
-    std::cout << std::endl;
-    std::for_each(rawContent.begin(), rawContent.end(), [&_metaData](std::vector < std::string>& _x) {_metaData.insert({ _x[0], std::stoul(_x[1]) }); });
-    // std::transform(rawContent.cbegin(), rawContent.cend(), _metaData.begin(), [](std::vector < std::string>& _x) {std::back_inserter(_x[0], _x[1]); });
-    return;
-}
-
-struct Filter {
-    std::vector<std::string> targets = {};
-    std::vector<std::vector<std::string>> trainData = {};
-
-
-    Filter() = default;
-
-    void setTargets(std::vector<std::string>& _targets) {
-        std::copy(_targets.begin(), _targets.end(), std::back_inserter(targets));
-    }
-
-
-
 };
 
 std::vector < std::vector<std::string>> FilterFunc(const std::vector<std::vector<std::string>>& _content, const std::function<bool(const std::vector<std::string>&)>& _func) {
@@ -96,7 +50,6 @@ std::vector<std::vector<double>> ConvFunc(const std::vector<std::vector<std::str
                 }
                 catch (std::exception ex) {
                     // skip column, if its datatype cannot converted to a numeric format
-                    // 
                 }
             };
             std::for_each(c.begin(), c.begin() + _targetColumn, func);
@@ -106,66 +59,63 @@ std::vector<std::vector<double>> ConvFunc(const std::vector<std::vector<std::str
     return vec1;
 }
 
-struct DataObject {
-    std::vector<std::vector<std::string>> content = {};
-    std::vector<std::string> targets = {};
+struct DataRecord {
+public:
+
+private:
+    uint16_t target;
+    std::vector<double> features;
+};
+
+struct TargetFilter {
+public:
+    static std::vector<std::string> applyFilter(std::vector<std::vector<std::string>>::const_iterator _rawDataBegin, std::vector<std::vector<std::string>>::const_iterator _rawDataEnd, size_t _targetColumn) {
+        std::vector<std::string> res = {};
+        std::for_each(_rawDataBegin, _rawDataEnd, [&res, _targetColumn](std::vector<std::string> _x) {
+            res.push_back(*(_x.cbegin() + _targetColumn));
+            }
+        );
+        return res;
+    }
+};
+
+struct DataTable {
+public:
+    void setMetaData(const DataTableMetaData& _metaData) {
+        metaData = _metaData;
+    }
+
+    void setData(const std::vector<std::vector<std::string>>& _rawData) {
+        FeatureFilter featureFilter;
+        std::vector<std::vector<std::string>>::const_iterator it = _rawData.cbegin();
+        std::advance(it, metaData.getFirstLineToRead());
+        filteredData = featureFilter.applyFilter(it, _rawData.cend());
+        targets = TargetFilter::applyFilter(it, _rawData.cend(), metaData.getTargetColumn());
+    }
+
+    void testTrainSplit(size_t _idcs) {
+        splitter.reset(filteredData.size());
+        splitter.pickIdcsRandomly(_idcs);
+        splitter.removeIdcs();
+    }
+
+    //std::vector <std::vector<std::string>> getAllTrainData() {
+    //    std::vector < std::vector<std::string>> tData;
+    //    setData(tData, splitter.getIdcs().first);
+    //    return tData;
+    //}
+
+    //DataTable getTrainData() {
+    //    DataTable tData;
+    //    return tData;
+    //}
+
+private:
+    DataTableMetaData metaData;
     Splitter splitter;
-    Filter filter;
-
-    DataObject() = default;
-
-    void setContent(const std::vector<std::vector<std::string>>& _content) {
-        std::copy(_content.begin(), _content.end(), std::back_inserter(content));
-        splitter.reset(content.size());
-    }
-
-    std::vector<std::string>& dataItem(std::size_t _i, std::vector<size_t> _ws) {
-        assert(_i < _ws.size());
-        return content[_ws[_i]];
-    }
-
-    std::vector<std::string>& trainData(std::size_t _i) {
-        return dataItem(_i, splitter.getIdcs().first);
-    }
-
-    std::vector<std::string>& testData(std::size_t _i) {
-        return dataItem(_i, splitter.getIdcs().second);
-    }
-
-    constexpr size_t getTrainDataSize() {
-        return splitter.getIdcs().first.size();
-    }
-
-    constexpr size_t getTestDataSize() {
-        return splitter.getIdcs().second.size();
-    }
-
-    void setData(std::vector < std::vector<std::string>>& _tData, std::vector<size_t >& _ws) {
-        _tData.resize(0);
-        for (auto it = _ws.cbegin(); it != _ws.cend(); ++it) {
-            _tData.push_back(content[*it]);
-        }
-    }
-
-    std::vector < std::vector<std::string>>& allTrainData(std::vector < std::vector<std::string>>& _tData) {
-        setData(_tData, splitter.getIdcs().first);
-        return _tData;
-    }
-
-    std::vector <std::vector<std::string>> getAllTrainData() {
-        std::vector < std::vector<std::string>> tData;
-        setData(tData, splitter.getIdcs().first);
-        return tData;
-    }
-
-    void allTestData(std::vector < std::vector<std::string>>& _tData) {
-        setData(_tData, splitter.getIdcs().second);
-    }
-
-    std::vector<std::string> getTargets() const {
-        return targets;
-    }
-
+    std::vector<std::vector<std::string>> filteredData;
+    std::vector<std::string> targets;
+    std::vector<DataRecord> items;
 };
 
 struct GroupedDataItem {
@@ -175,20 +125,26 @@ struct GroupedDataItem {
     std::function<double(std::vector<double>)> probFunc;
 };
 
+const std::string MetaDataFileName = "C:\\Users\\haasr\\source\\repos\\DataTreatmentStudy\\DataTreatmentStudy\\data\\irisMetaData.txt";
+const std::string CsvDataFileName = "C:\\Users\\haasr\\source\\repos\\DataTreatmentStudy\\DataTreatmentStudy\\data\\iris.csv";
+
 int main()
 {
-    std::string fname = "C:\\Users\\haasr\\source\\repos\\DataTreatmentStudy\\DataTreatmentStudy\\data\\irisMetaData.txt";
-    std::map<std::string, size_t> metaData;
-    getMetaData(metaData, fname);
-
+    std::map<std::string, size_t> metaData = getMetaData(MetaDataFileName);
     const size_t targetColumn = metaData["targetColumn"];
     const size_t lineCount = metaData["numberOfLines"];
     const size_t firstLineToRead = metaData["firstLineToRead"];
 
-    fname = "C:\\Users\\haasr\\source\\repos\\DataTreatmentStudy\\DataTreatmentStudy\\data\\iris.csv";
-    std::vector<std::vector<std::string>> content;
-    getCsvContent(content, fname);
+    std::vector<std::vector<std::string>> content = getCsvContent(CsvDataFileName);
 
+    DataTableMetaData dataTableMetaData;
+    dataTableMetaData.setMetaData(MetaDataFileName);
+
+    DataTable dataTable;
+    dataTable.setMetaData(dataTableMetaData);
+    dataTable.setData(content);
+    dataTable.testTrainSplit(30);
+    
     content.erase(content.begin(), content.begin() + firstLineToRead);
 
     std::vector<std::string> targets = {};
@@ -199,7 +155,6 @@ int main()
     dataObj.splitter.pickIdcsRandomly(30);
     dataObj.splitter.removeIdcs();
 
-    std::map<std::string, std::vector<std::vector<double>>> _groupedData;
     std::map<std::string, GroupedDataItem> groupedData;
 
     for (auto it = targets.cbegin(); it != targets.cend(); ++it) {
@@ -209,7 +164,6 @@ int main()
         auto vec = FilterFunc(dataObj.getAllTrainData(), [s, targetColumn](const std::vector<std::string>& _x) {return _x[targetColumn].find(s) != std::string::npos; });
 
         // Conversion
-        _groupedData[s] = ConvFunc(vec, targetColumn);
         groupedData[s].featureData = ConvFunc(vec, targetColumn);
     }
 
@@ -238,22 +192,10 @@ int main()
 
         double relativeFrequency = item.second.featureData.size() / 120.0;
 
-        //auto prob = [&means, &stddevs, relativeFrequency](std::vector<double> _x) -> double {
-        //    double res = 1.0;
-        //    std::vector<double> ws = {};
-        //    std::vector<double> ws1 = {};
-        //    std::transform(_x.begin(), _x.end(), means.begin(), ws.begin(), [](double _a, double _b) { return _a - _b; });
-        //    std::transform(ws.begin(), ws.end(), stddevs.begin(), ws1.begin(), [](double _a, double _b) { return gaussianPDF(_a, 0, _b); });
-        //    std::for_each(ws1.begin(), ws1.end(), [&res](double _x) {res *= _x; });
-        //    return res * relativeFrequency;
-        //};
-
         //auto prob = [&item, relativeFrequency](std::vector<double> _x) -> double {
         //    double res = 1.0;
         //    std::vector<double> ws = {};
         //    std::vector<double> ws1 = {};
-
-        //    
         //    std::transform(_x.begin(), _x.end(), item.second.means.begin(), ws.begin(), [&ws](double _a, double _b) { return  _a - _b; });
         //    std::transform(ws.begin(), ws.end(), item.second.stddevs.begin(), ws1.begin(), [](double _a, double _b) { return gaussianPDF(_a, 0, _b); });
         //    std::for_each(ws1.begin(), ws1.end(), [&res](double _x) {res *= _x; });

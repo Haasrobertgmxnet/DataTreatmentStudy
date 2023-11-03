@@ -134,6 +134,10 @@
     <ClCompile Include="DataTreatmentStudy.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="data_object.h" />
+    <ClInclude Include="feature_filter.h" />
+    <ClInclude Include="getcsvcontent.h" />
+    <ClInclude Include="metadata.h" />
     <ClInclude Include="splitter.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -23,5 +23,17 @@
     <ClInclude Include="splitter.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
+    <ClInclude Include="metadata.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="getcsvcontent.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="feature_filter.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="data_object.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
