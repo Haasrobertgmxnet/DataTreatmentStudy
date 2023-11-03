@@ -275,14 +275,22 @@ int main()
     for (auto key : keys) {
         std::cout << "Key: " << key << std::endl;
         std::for_each(groupedData[key].featureData.begin(), groupedData[key].featureData.end(),
-            [&groupedData, &keys](const std::vector<double>& _x) {
+            [&groupedData, &keys, key](const std::vector<double>& _x) {
+                double prob = 0.0;
+                std::string selection = "";
                 //std::for_each(keys.begin(), keys.end(), [&groupedData, _x](const std::string& _s) {std::cout << "\tKey: " << _s; });
-                std::for_each(keys.begin(), keys.end(), [&groupedData, _x](const std::string& _s) {std::cout << "\tKey: " << _s << "\tValue: " << groupedData[_s].probFunc(_x); });
+                std::for_each(keys.begin(), keys.end(), [&groupedData, &prob, &selection, _x](const std::string& _s) {
+                    double tmp = groupedData[_s].probFunc(_x);
+                    selection = (tmp > prob) ? _s : selection;
+                    prob = (tmp > prob) ? tmp : prob;
+                    // std::cout << "\tKey: " << _s << "\tValue: " << tmp; 
+                    });
                 std::cout << std::endl;
+                std::cout << "Key: " << key << "\tVote: " << selection << "\tProbability: " << prob << std::endl;
             }
         );
     }
 
-    std::cout << "Hello World!\n";
+    std::cout << "End!\n";
 }
 
