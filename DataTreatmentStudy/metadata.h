@@ -43,7 +43,7 @@ public:
             activeFeatures.push_back(metaData[key]);
         }
     }
-private:
+
     size_t targetColumn;
     size_t firstLineToRead;
     std::vector<size_t> activeFeatures;
