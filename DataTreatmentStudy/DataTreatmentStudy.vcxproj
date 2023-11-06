@@ -139,6 +139,7 @@
     <ClInclude Include="getcsvcontent.h" />
     <ClInclude Include="metadata.h" />
     <ClInclude Include="splitter.h" />
+    <ClInclude Include="target_filter.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
