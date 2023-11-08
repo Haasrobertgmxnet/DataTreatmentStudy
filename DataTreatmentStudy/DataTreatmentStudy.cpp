@@ -1,5 +1,6 @@
 // DataTreatmentStudy.cpp : Diese Datei enthält die Funktion "main". Hier beginnt und endet die Ausführung des Programms.
 //
+
 #define _USE_MATH_DEFINES
 
 #include <iostream>
@@ -16,19 +17,10 @@
 
 #include "getcsvcontent.h"
 #include "metadata.h"
-
-//#include "splitter.h"
-//#include "feature_filter.h"
 #include "data_object.h"
+#include "grouped_data.h"
 
-double logGaussianPDF(double x, double _mean, double _sd) {
-    auto w = (x - _mean) / _sd;
-    return -0.5 * w * w - std::log(std::sqrt(2. * M_PI * _sd));
-};
 
-double gaussianPDF(double x, double _mean, double _sd) {
-    return std::exp(logGaussianPDF(x, _mean, _sd));
-};
 
 std::vector < std::vector<std::string>> FilterFunc(const std::vector<std::vector<std::string>>& _content, const std::function<bool(const std::vector<std::string>&)>& _func) {
     // Filtering
@@ -60,23 +52,6 @@ std::vector<std::vector<double>> ConvFunc(const std::vector<std::vector<std::str
     return vec1;
 }
 
-struct DataRecord {
-public:
-
-private:
-    uint16_t target;
-    std::vector<double> features;
-};
-
-
-
-struct GroupedDataItem {
-    std::vector<std::vector<double>> featureData;
-    std::vector<double> means;
-    std::vector<double> stddevs;
-    std::function<double(std::vector<double>)> probFunc;
-};
-
 const std::string MetaDataFileName = "C:\\Users\\haasr\\source\\repos\\DataTreatmentStudy\\DataTreatmentStudy\\data\\irisMetaData.txt";
 const std::string CsvDataFileName = "C:\\Users\\haasr\\source\\repos\\DataTreatmentStudy\\DataTreatmentStudy\\data\\iris.csv";
 
@@ -94,12 +69,18 @@ int main()
     dataTable.setData(content);
     dataTable.testTrainSplit(30);
     DataTable trainDataTable = dataTable.getTrainDataTable();
+    DataTable testDataTable = dataTable.getTestDataTable();
     
     content.erase(content.begin(), content.begin() + firstLineToRead);
 
     std::vector<std::string> targets = {};
     std::for_each(content.begin(), content.end(), [&targets, targetColumn](const std::vector<std::string>& _x) {if (!std::count(targets.begin(), targets.end(), _x[targetColumn])) targets.push_back(_x[targetColumn]); });
 
+    auto vec1 = testDataTable.getTiedData();
+
+    auto vec2 = ConvFunc(vec1, targetColumn);
+
+    size_t samples = 0;
     std::map<std::string, GroupedDataItem> groupedData;
     for (auto it = targets.cbegin(); it != targets.cend(); ++it) {
         std::string s = *it;
@@ -109,39 +90,15 @@ int main()
 
         // Conversion
         groupedData[s].featureData = ConvFunc(vec, targetColumn);
+        samples += groupedData[s].featureData.size();
     }
 
     for (auto&& item : groupedData) {
         std::cout << item.first << std::endl;
-        std::vector<double> means = { 0.0,0.0,0.0,0.0 };
-        double scal = 1.0 / item.second.featureData.size();
-        std::for_each(item.second.featureData.begin(), item.second.featureData.end(), [&means, scal](std::vector<double>& _x) {
-            std::transform(_x.begin(), _x.end(), means.begin(), means.begin(), [scal](double _a, double _b) {_b += _a * scal; return _b; });
-            });
-        std::vector<std::vector<double>> ws(item.second.featureData);
-        std::for_each(ws.begin(), ws.end(), [&means](std::vector<double>& _x) {
-            std::transform(_x.begin(), _x.end(), means.begin(), _x.begin(), [](double _a, double _b) {return _a - _b; });
-            });
-
-        std::vector<double> vars = { 0.0,0.0,0.0,0.0 };
-        scal = 1.0 / (ws.size() - 1);
-        std::for_each(ws.begin(), ws.end(), [&vars, scal](std::vector<double>& _x) {
-            std::transform(_x.begin(), _x.end(), vars.begin(), vars.begin(), [scal](double _a, double _b) {_b += scal * std::pow(_a, 2.0); return _b; });
-            });
-        std::vector<double> stddevs = { 0.0,0.0,0.0,0.0 };
-        std::transform(vars.begin(), vars.end(), stddevs.begin(), [](double _a) {return std::sqrt(_a); });
-        std::copy(means.begin(), means.end(), std::back_inserter(item.second.means));
-        std::copy(stddevs.begin(), stddevs.end(), std::back_inserter(item.second.stddevs));
-
-        double relativeFrequency = item.second.featureData.size() / 120.0;
-        auto prob = [&item, relativeFrequency](std::vector<double> _x) -> double {
-            double res = 1.0;
-            for (auto j = 0; j < 4; ++j) {
-                res *= gaussianPDF(_x[j], item.second.means[j], item.second.stddevs[j]);
-            }
-            return res * relativeFrequency;
-        };
-        item.second.probFunc = prob;
+        item.second.resetMeansAndStdDevs(4);
+        item.second.calcStdDeviations();
+        item.second.setRelativeFrequency(samples);
+        item.second.setProbabilityFunction();
     }
 
     std::vector<std::string> keys = { "\"Setosa\"" , "\"Versicolor\"" , "\"Virginica\"" };

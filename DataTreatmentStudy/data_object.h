@@ -59,6 +59,23 @@ public:
         return tData;
     };
 
+    std::vector <std::vector<std::string>> getTestFeatureData() {
+        return getTrainData<std::vector < std::vector<std::string>>>(filteredData, splitter.getIdcs().second);
+    }
+
+    std::vector<std::string> getTestTargetData() {
+        return getTrainData<std::vector<std::string>>(targets, splitter.getIdcs().second);
+    }
+
+    DataTable getTestDataTable() {
+        DataTable tData;
+        DataTableMetaData metaData;
+        metaData.firstLineToRead = 0;
+        tData.filteredData = getTestFeatureData();
+        tData.targets = getTestTargetData();
+        return tData;
+    };
+
     std::vector <std::vector<std::string>> getTiedData() {
         std::for_each(filteredData.begin(), filteredData.end(), [](std::vector<std::string >& _s) {std::cout << _s[0] << std::endl; });
         std::vector <std::vector<std::string>> resData(filteredData.size());
