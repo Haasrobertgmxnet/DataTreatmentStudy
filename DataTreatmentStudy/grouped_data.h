@@ -16,6 +16,17 @@ double gaussianPDF(double x, double _mean, double _sd) {
     return std::exp(logGaussianPDF(x, _mean, _sd));
 };
 
+std::string maxLikelihoodEstimator(std::vector<double> x, std::map<std::string, std::function<double(std::vector<double>)>> _m) {
+    std::map<std::string, double> resMap;
+    std::transform(_m.begin(), _m.end(), std::inserter(resMap, resMap.end()), [x](std::pair <std::string, std::function<double(std::vector<double>)>> _kvp) {
+        return std::pair <std::string, double>(_kvp.first, _kvp.second(x));
+        });
+    auto res = std::max_element(resMap.begin(), resMap.end(), [](auto a, auto b) {
+        return a.second < b.second;
+        });
+    return res->first;
+};
+
 struct GroupedDataItem {
 
     void calcMeans() {

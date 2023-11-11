@@ -20,8 +20,6 @@
 #include "data_object.h"
 #include "grouped_data.h"
 
-
-
 std::vector < std::vector<std::string>> FilterFunc(const std::vector<std::vector<std::string>>& _content, const std::function<bool(const std::vector<std::string>&)>& _func) {
     // Filtering
     auto view2 = _content | std::views::filter(_func);
@@ -55,6 +53,11 @@ std::vector<std::vector<double>> ConvFunc(const std::vector<std::vector<std::str
 const std::string MetaDataFileName = "C:\\Users\\haasr\\source\\repos\\DataTreatmentStudy\\DataTreatmentStudy\\data\\irisMetaData.txt";
 const std::string CsvDataFileName = "C:\\Users\\haasr\\source\\repos\\DataTreatmentStudy\\DataTreatmentStudy\\data\\iris.csv";
 
+struct PredictionVsProperResults{
+    std::string predictedValue;
+    std::string properValue;
+};
+
 int main()
 {
     std::vector<std::vector<std::string>> content = getCsvContent(CsvDataFileName);
@@ -70,15 +73,8 @@ int main()
     dataTable.testTrainSplit(30);
     DataTable trainDataTable = dataTable.getTrainDataTable();
     DataTable testDataTable = dataTable.getTestDataTable();
-    
-    content.erase(content.begin(), content.begin() + firstLineToRead);
 
-    std::vector<std::string> targets = {};
-    std::for_each(content.begin(), content.end(), [&targets, targetColumn](const std::vector<std::string>& _x) {if (!std::count(targets.begin(), targets.end(), _x[targetColumn])) targets.push_back(_x[targetColumn]); });
-
-    auto vec1 = testDataTable.getTiedData();
-
-    auto vec2 = ConvFunc(vec1, targetColumn);
+    std::vector<std::string> targets = dataTable.getTargetNames();
 
     size_t samples = 0;
     std::map<std::string, GroupedDataItem> groupedData;
@@ -101,24 +97,36 @@ int main()
         item.second.setProbabilityFunction();
     }
 
-    std::vector<std::string> keys = { "\"Setosa\"" , "\"Versicolor\"" , "\"Virginica\"" };
+    std::vector< PredictionVsProperResults> predictedVsProperResults;
+    std::map<std::string, std::function<double(std::vector<double>)>> funcs;
+    std::transform(targets.cbegin(), targets.cend(), std::inserter(funcs, funcs.end()),
+        [&groupedData](auto& _target) {
+            return std::pair<std::string, std::function<double(std::vector<double>)>>(_target, groupedData[_target].probFunc);
+        }
+    );
 
-    for (auto key : keys) {
-        std::cout << "Key: " << key << std::endl;
-        std::for_each(groupedData[key].featureData.begin(), groupedData[key].featureData.end(),
-            [&groupedData, &keys, key](const std::vector<double>& _x) {
-                double prob = 0.0;
-                std::string selection = "";
-                std::for_each(keys.begin(), keys.end(), [&groupedData, &prob, &selection, _x](const std::string& _s) {
-                    double tmp = groupedData[_s].probFunc(_x);
-                    selection = (tmp > prob) ? _s : selection;
-                    prob = (tmp > prob) ? tmp : prob;
-                    });
-                std::cout << std::endl;
-                std::cout << "Key: " << key << "\tVote: " << selection << "\tProbability: " << prob << std::endl;
+    std::for_each(targets.cbegin(), targets.cend(), [&groupedData, &predictedVsProperResults, funcs](std::string _target) {
+        std::transform(groupedData[_target].featureData.begin(), groupedData[_target].featureData.end(),
+        std::back_inserter(predictedVsProperResults),
+        [_target, &funcs](auto _item) {
+                PredictionVsProperResults res;
+                res.properValue = _target;
+                res.predictedValue = maxLikelihoodEstimator(_item, funcs);
+                return res;
             }
         );
-    }
+        }
+    );
+
+    size_t correctlyPredicted = 0;
+
+    std::for_each(predictedVsProperResults.cbegin(), predictedVsProperResults.cend(), [&correctlyPredicted](auto obj) {
+        correctlyPredicted += (obj.properValue == obj.predictedValue) ? 1 : 0;
+        });
+
+    double accuracy = static_cast<double>(correctlyPredicted) / 120.0;
+    printf("Correctly Predicted: %u\n", correctlyPredicted);
+    std::cout << "Accuracy: " << accuracy << std::endl;
 
     std::cout << "End!\n";
 }

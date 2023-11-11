@@ -38,7 +38,8 @@ public:
 
     void testTrainSplit(size_t _idcs) {
         splitter.reset(filteredData.size());
-        splitter.pickIdcsRandomly(_idcs);
+        auto tn = getTargetNames();
+        splitter.pickIdcsRandomly(_idcs, getTargetNames().size());
         splitter.removeIdcs();
     }
 
@@ -82,6 +83,12 @@ public:
         std::transform(filteredData.begin(), filteredData.end(), targets.begin(), resData.begin(),
             [](std::vector<std::string>& _a, std::string& _b) { _a.push_back(_b); return _a; /*std::cout << _b << std::endl; _a.push_back(_b);*/  });
         return std::move(resData);
+    }
+
+    std::vector<std::string> getTargetNames() {
+        std::vector<std::string> res = {};
+        std::for_each(targets.begin(), targets.end(), [this, &res](std::string _x) {if (!std::count(res.begin(), res.end(), _x)) res.push_back(_x); });
+        return res;
     }
 
 private:
