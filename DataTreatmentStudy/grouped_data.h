@@ -7,14 +7,7 @@
 #include <cmath>
 #include <functional>
 
-double logGaussianPDF(double x, double _mean, double _sd) {
-    auto w = (x - _mean) / _sd;
-    return -0.5 * w * w - std::log(std::sqrt(2. * M_PI * _sd));
-};
-
-double gaussianPDF(double x, double _mean, double _sd) {
-    return std::exp(logGaussianPDF(x, _mean, _sd));
-};
+#include "prob_func.h"
 
 std::string maxLikelihoodEstimator(std::vector<double> x, std::map<std::string, std::function<double(std::vector<double>)>> _m) {
     std::map<std::string, double> resMap;

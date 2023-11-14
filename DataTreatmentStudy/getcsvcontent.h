@@ -6,7 +6,7 @@
 #include <sstream>
 #include <iostream>
 
-std::vector<std::vector<std::string>> getCsvContent(std::string _csvFile) {
+std::vector<std::vector<std::string>> getCsvContent(std::string _csvFile, const char delimiter = ',') {
     std::vector<std::vector<std::string>> csvContent = {};
     std::vector<std::string> row;
     std::string line, word;
@@ -24,7 +24,7 @@ std::vector<std::vector<std::string>> getCsvContent(std::string _csvFile) {
 
         std::stringstream str(line);
 
-        while (getline(str, word, ','))
+        while (getline(str, word, delimiter))
             row.push_back(word);
         csvContent.push_back(row);
         ++i;
