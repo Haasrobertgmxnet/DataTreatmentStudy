@@ -78,7 +78,7 @@ public:
     };
 
     std::vector <std::vector<std::string>> getTiedData() {
-        std::for_each(filteredData.begin(), filteredData.end(), [](std::vector<std::string >& _s) {std::cout << _s[0] << std::endl; });
+        // std::for_each(filteredData.begin(), filteredData.end(), [](std::vector<std::string >& _s) {std::cout << _s[0] << std::endl; });
         std::vector <std::vector<std::string>> resData(filteredData.size());
         std::transform(filteredData.begin(), filteredData.end(), targets.begin(), resData.begin(),
             [](std::vector<std::string>& _a, std::string& _b) { _a.push_back(_b); return _a; /*std::cout << _b << std::endl; _a.push_back(_b);*/  });

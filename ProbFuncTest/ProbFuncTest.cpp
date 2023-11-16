@@ -83,7 +83,6 @@ int main()
     for (size_t j = 0; j < data1.size(); ++j) {
         diff1.push_back(std::abs(vec1[j] - data1[j]));
         diff2.push_back(std::abs(vec2[j] - data2[j]));
-        // std::cout << "Diff 1: " << vec1[j] - data1[j] << "Diff 2: " << vec2[j] - data2[j] << std::endl;
     }
 
     for (size_t j = 0; j < diff1.size(); ++j) {
@@ -100,18 +99,6 @@ int main()
 
     ProbabilityDensity probabilityDensity(data, ProbabilityDensity::Mode::EpanechnikovKDE);
     probabilityDensity.setBandWidth(40.0);
-    // std::for_each(tableData.cbegin(), tableData.cend(), [&probabilityDensity](std::vector<double> w) {std::cout << w[0] << "\t" << probabilityDensity(w[0]) << std::endl; });
     std::for_each(tableData.cbegin(), tableData.cend(), [&probabilityDensity](std::vector<double> w) {printf("%f\t%.20f\n", w[0] , probabilityDensity(w[0])); });
     std::cout << "Hello World!\n";
 }
-
-// Programm ausführen: STRG+F5 oder Menüeintrag "Debuggen" > "Starten ohne Debuggen starten"
-// Programm debuggen: F5 oder "Debuggen" > Menü "Debuggen starten"
-
-// Tipps für den Einstieg: 
-//   1. Verwenden Sie das Projektmappen-Explorer-Fenster zum Hinzufügen/Verwalten von Dateien.
-//   2. Verwenden Sie das Team Explorer-Fenster zum Herstellen einer Verbindung mit der Quellcodeverwaltung.
-//   3. Verwenden Sie das Ausgabefenster, um die Buildausgabe und andere Nachrichten anzuzeigen.
-//   4. Verwenden Sie das Fenster "Fehlerliste", um Fehler anzuzeigen.
-//   5. Wechseln Sie zu "Projekt" > "Neues Element hinzufügen", um neue Codedateien zu erstellen, bzw. zu "Projekt" > "Vorhandenes Element hinzufügen", um dem Projekt vorhandene Codedateien hinzuzufügen.
-//   6. Um dieses Projekt später erneut zu öffnen, wechseln Sie zu "Datei" > "Öffnen" > "Projekt", und wählen Sie die SLN-Datei aus.

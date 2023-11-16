@@ -1,7 +1,7 @@
 // DataTreatmentStudy.cpp : Diese Datei enthält die Funktion "main". Hier beginnt und endet die Ausführung des Programms.
 //
 
-#define _USE_MATH_DEFINES
+// #define _USE_MATH_DEFINES
 
 #include <iostream>
 #include <fstream>
@@ -91,10 +91,10 @@ int main()
 
     for (auto&& item : groupedData) {
         std::cout << item.first << std::endl;
-        item.second.resetMeansAndStdDevs(4);
-        item.second.calcStdDeviations();
+        //item.second.resetMeansAndStdDevs(4);
+        //item.second.calcStdDeviations();
         item.second.setRelativeFrequency(samples);
-        item.second.setProbabilityFunction();
+        item.second.setProbabilityFunction(ProbabilityDensity::Mode::EpanechnikovKDE);
     }
 
     std::vector< PredictionVsProperResults> predictedVsProperResults;
@@ -125,6 +125,44 @@ int main()
         });
 
     double accuracy = static_cast<double>(correctlyPredicted) / 120.0;
+    printf("Correctly Predicted: %u\n", correctlyPredicted);
+    std::cout << "Accuracy: " << accuracy << std::endl;
+
+    predictedVsProperResults.resize(0);
+
+    for (auto it = targets.cbegin(); it != targets.cend(); ++it) {
+        std::string s = *it;
+
+        // Filtering
+        auto vec = FilterFunc(testDataTable.getTiedData(), [s, targetColumn](const std::vector<std::string>& _x) {return _x[targetColumn].find(s) != std::string::npos; });
+
+        // Conversion
+        groupedData[s].featureData = ConvFunc(vec, targetColumn);
+        samples += groupedData[s].featureData.size();
+
+
+    }
+
+    std::for_each(targets.cbegin(), targets.cend(), [&groupedData, &predictedVsProperResults, funcs](std::string _target) {
+        std::transform(groupedData[_target].featureData.begin(), groupedData[_target].featureData.end(),
+        std::back_inserter(predictedVsProperResults),
+        [_target, &funcs](auto _item) {
+                PredictionVsProperResults res;
+                res.properValue = _target;
+                res.predictedValue = maxLikelihoodEstimator(_item, funcs);
+                return res;
+            }
+    );
+        }
+    );
+
+    correctlyPredicted = 0;
+
+    std::for_each(predictedVsProperResults.cbegin(), predictedVsProperResults.cend(), [&correctlyPredicted](auto obj) {
+        correctlyPredicted += (obj.properValue == obj.predictedValue) ? 1 : 0;
+        });
+
+    accuracy = static_cast<double>(correctlyPredicted) / 30.0;
     printf("Correctly Predicted: %u\n", correctlyPredicted);
     std::cout << "Accuracy: " << accuracy << std::endl;
 

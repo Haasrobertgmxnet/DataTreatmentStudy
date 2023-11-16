@@ -35,6 +35,8 @@ public:
     explicit ProbabilityDensity(const std::vector<double>& w, Mode m = Mode::GaussianPDF)
         : mode{ m }, data{w}
     {
+        mean = 0.0;
+
         double scal = 1.0;
         double vars = 0.0;
         scal = 1.0 / data.size();
@@ -99,6 +101,11 @@ public:
         }
         return erg;
     }
+
+    std::function<double(double)> getProbDensityFunction() const {
+        return probDensity;
+    }
+
 private:
     Mode mode;
     std::vector<double> data;
